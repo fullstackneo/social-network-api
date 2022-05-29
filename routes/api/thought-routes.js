@@ -4,7 +4,9 @@ const getAllThoughts = (req, res) => {
   res.json(1);
 };
 
-const createThought = (req, res) => {};
+const createThought = (req, res) => {
+    
+};
 const getThoughtById = (req, res) => {};
 const updateThought = (req, res) => {};
 

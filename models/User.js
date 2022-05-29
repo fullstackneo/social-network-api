@@ -20,7 +20,14 @@ const UserSchema = new Schema(
         ref: 'Thought',
       },
     ],
-    friends: [this],
+    // friends: [this],
+    //add validator: can not add self and duplicate values
+    friends: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     toJSON: {
