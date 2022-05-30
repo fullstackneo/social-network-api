@@ -3,7 +3,7 @@ const { User, Thought } = require('../models');
 const UserController = {
   getAllUsers: (req, res) => {
     User.find()
-      .populate({ path: 'thoughts', select: 'thoughtText reactions' })
+      .populate({ path: 'thoughts', select: '-username -reactions._id -__v' })
       .select('-__v')
       .then(data => {
         res.json(data);
@@ -16,7 +16,8 @@ const UserController = {
 
   getUserById: ({ params }, res) => {
     User.findById(params.userId)
-      .populate({ path: 'thoughts', select: 'thoughtText reactions' })
+      .populate({ path: 'thoughts', select: '-username -reactions._id -__v' })
+      .select('-__v -thoughts.reactions._id')
       .then(data => {
         if (!data) {
           return res.status(400).json({ message: 'No user found with this id!' });
@@ -35,20 +36,25 @@ const UserController = {
       .catch(err => res.status(400).json(err));
   },
 
-  // to-do: update username in thought
   updateUser: ({ params, body }, res) => {
-    User.findByIdAndUpdate({ _id: params.userId }, body, { new: true, runValidators: true })
-      .then(data => {
+    // update user colletion
+    User.findByIdAndUpdate({ _id: params.userId }, body, { runValidators: true })
+      .then(async data => {
         if (!data) {
           res.status(404).json({ message: 'No user found with this id!' });
           return;
         }
-        res.json(data);
+        // update associated thoughts
+        await Thought.updateMany({ username: data.username }, { username: body.username });
+        //return updated user with its associated thoughts
+        return User.findById(params.userId).populate('thoughts');
       })
+      .then(data => res.json({ message: 'update successfully', data: data }))
       .catch(err => res.status(400).json(err));
   },
 
   deleteUser: ({ params }, res) => {
+    // delete user
     User.findOneAndDelete({ _id: params.userId })
       .select('-__v')
       .then(async data => {
@@ -56,12 +62,14 @@ const UserController = {
           res.status(404).json({ message: 'No user found with this id!' });
           return;
         }
-        await Thought.deleteMany({ _id: { $in: data.friends } });
+        // deleted associated thoughts
+        await Thought.deleteMany({ _id: { $in: data.thoughts } });
         res.json(data);
       })
       .catch(err => res.status(400).json(err));
   },
 
+  // To-do: exclude adding self
   addFriend: ({ params }, res) => {
     User.findOneAndUpdate(
       { _id: params.userId },
