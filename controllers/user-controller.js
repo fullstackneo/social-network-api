@@ -1,10 +1,13 @@
-const { User } = require('../models');
+const { User, Thought } = require('../models');
 
 const UserController = {
   getAllUsers: (req, res) => {
     User.find()
+      .populate({ path: 'thoughts', select: 'thoughtText reactions' })
       .select('-__v')
-      .then(data => res.json(data))
+      .then(data => {
+        res.json(data);
+      })
       .catch(err => {
         console.log(err);
         res.status(400).json(err);
@@ -12,8 +15,8 @@ const UserController = {
   },
 
   getUserById: ({ params }, res) => {
-    User.findOne({ _id: params.userId })
-      .select('-__v')
+    User.findById(params.userId)
+      .populate({ path: 'thoughts', select: 'thoughtText reactions' })
       .then(data => {
         if (!data) {
           return res.status(400).json({ message: 'No user found with this id!' });
@@ -32,6 +35,7 @@ const UserController = {
       .catch(err => res.status(400).json(err));
   },
 
+  // to-do: update username in thought
   updateUser: ({ params, body }, res) => {
     User.findByIdAndUpdate({ _id: params.userId }, body, { new: true, runValidators: true })
       .then(data => {
@@ -47,11 +51,12 @@ const UserController = {
   deleteUser: ({ params }, res) => {
     User.findOneAndDelete({ _id: params.userId })
       .select('-__v')
-      .then(data => {
+      .then(async data => {
         if (!data) {
           res.status(404).json({ message: 'No user found with this id!' });
           return;
         }
+        await Thought.deleteMany({ _id: { $in: data.friends } });
         res.json(data);
       })
       .catch(err => res.status(400).json(err));
