@@ -2,6 +2,7 @@ const { trusted } = require('mongoose');
 const { User, Thought } = require('../models');
 
 const ThoughtController = {
+  // get all thoughts
   getAllThoughts: (req, res) => {
     Thought.find()
       .select('-__v -reactions._id')
@@ -13,6 +14,7 @@ const ThoughtController = {
   },
 
   getThoughtById: ({ params }, res) => {
+    // get a single thought by id
     Thought.findOne({ _id: params.thoughtId })
       .select('-__v -reactions._id')
       .then(data => {
@@ -33,7 +35,7 @@ const ThoughtController = {
       // if username does not exist, return message
       return res.status(404).json({ message: 'failed to add, maybe username does not exist?' });
     }
-    // if username exists, create thought doc
+    // if username exists, create a thought
     Thought.create(body)
       .then(data => {
         id = data._id;
@@ -61,7 +63,7 @@ const ThoughtController = {
       .catch(err => res.status(400).json(err));
   },
 
-  // To-do update user
+  // update a thought
   updateThought: async ({ params, body }, res) => {
     // check if the new username exists
     const doc = await User.findOne({ username: body.username });
@@ -70,9 +72,8 @@ const ThoughtController = {
       return res.status(404).json({ message: 'this user does not exist' });
     }
 
+    // update the thought
     Thought.findByIdAndUpdate({ _id: params.thoughtId }, body, { runValidators: true })
-      .select('thoughtText username')
-      .lean()
       .then(async data => {
         if (!data) {
           res.status(404).json({ message: 'No thought found with this id!' });
@@ -81,11 +82,12 @@ const ThoughtController = {
         // delete thought from old user
         await User.findOneAndUpdate({ username: data.username }, { $pull: { thoughts: data._id } });
 
-        // add thoughts to new user
+        // add thoughts to a new user
         await User.findOneAndUpdate({ username: body.username }, { $addToSet: { thoughts: data._id } });
 
-        res.json(data);
+        return Thought.findById(params.thoughtId);
       })
+      .then(data => res.json(data))
       .catch(err => res.status(400).json(err));
   },
 
@@ -113,6 +115,7 @@ const ThoughtController = {
   },
 
   addReaction: ({ params, body }, res) => {
+    // add reaction to associated thought
     Thought.findOneAndUpdate({ _id: params.thoughtId }, { $push: { reactions: body } }, { new: true })
       .select('-__v -reactions._id -username')
       .then(data => {
@@ -126,20 +129,23 @@ const ThoughtController = {
   },
 
   removeReaction: ({ params }, res) => {
-    Thought.findOneAndUpdate({ _id: params.thoughtId }, { $pull: { reactions: { reactionId: params.reactionId } } }).select('-reactions._id')
+    // remove reaction from associated thought
+    Thought.findOneAndUpdate({ _id: params.thoughtId }, { $pull: { reactions: { reactionId: params.reactionId } } })
+      .select('-reactions._id')
       .then(data => {
+        // check if the thought id exist
         if (!data) {
           res.status(404).json({ message: 'No thought found with this id!' });
           return;
         }
+        // check if the reactionid exists
         const reactionIdArr = data.reactions.map(item => item.reactionId.toString());
         if (!reactionIdArr.includes(params.reactionId)) {
           res.status(404).json({ message: 'No reaction found with this id' });
           return;
         }
+        //  return the deleted reaciton
         const reactionData = data.reactions.find(item => item.reactionId.toString() === params.reactionId.toString());
-        console.log(reactionData);
-
         res.json({ message: 'deleted successfully', data: reactionData });
       })
       .catch(err => res.json(err));

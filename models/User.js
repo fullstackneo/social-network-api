@@ -20,8 +20,6 @@ const UserSchema = new Schema(
         ref: 'Thought',
       },
     ],
-    // friends: [this],
-    //add validator: can not add self and duplicate values
     friends: [this],
   },
   {

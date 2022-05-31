@@ -2,6 +2,7 @@ const { User, Thought } = require('../models');
 
 const UserController = {
   getAllUsers: (req, res) => {
+    // get all users
     User.find()
       .populate({ path: 'thoughts', select: '-username -reactions._id -__v' })
       .select('-__v')
@@ -15,6 +16,7 @@ const UserController = {
   },
 
   getUserById: ({ params }, res) => {
+    // get a single user by id
     User.findById(params.userId)
       .populate({ path: 'thoughts', select: '-username -reactions._id -__v' })
       .select('-__v -thoughts.reactions._id')
@@ -31,13 +33,14 @@ const UserController = {
   },
 
   createUser: ({ body }, res) => {
+    // create a new user
     User.create(body)
       .then(data => res.json(data))
       .catch(err => res.status(400).json(err));
   },
 
   updateUser: ({ params, body }, res) => {
-    // update user colletion
+    // update a user
     User.findByIdAndUpdate({ _id: params.userId }, body, { runValidators: true })
       .then(async data => {
         if (!data) {
@@ -46,7 +49,7 @@ const UserController = {
         }
         // update associated thoughts
         await Thought.updateMany({ username: data.username }, { username: body.username });
-        //return updated user with its associated thoughts
+        // return updated user with its associated thoughts
         return User.findById(params.userId).populate('thoughts');
       })
       .then(data => res.json({ message: 'update successfully', data: data }))
@@ -54,7 +57,7 @@ const UserController = {
   },
 
   deleteUser: ({ params }, res) => {
-    // delete user
+    // delete a user
     User.findOneAndDelete({ _id: params.userId })
       .select('-__v')
       .then(async data => {
@@ -64,13 +67,18 @@ const UserController = {
         }
         // deleted associated thoughts
         await Thought.deleteMany({ _id: { $in: data.thoughts } });
-        res.json(data);
+        res.json({ message: 'delete successfully', data });
       })
       .catch(err => res.status(400).json(err));
   },
 
-  // To-do: exclude adding self
   addFriend: ({ params }, res) => {
+    // exclude adding user himself as friend
+    if (params.userId === params.friendId) {
+      res.status(404).json({ message: 'cannot add self as friend' });
+      return;
+    }
+    // add a friend
     User.findOneAndUpdate(
       { _id: params.userId },
       {
@@ -91,6 +99,7 @@ const UserController = {
   },
 
   removeFriend: ({ params }, res) => {
+    // remove a friend
     User.findOneAndUpdate(
       { _id: params.userId },
       {
